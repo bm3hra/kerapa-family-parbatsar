@@ -1,0 +1,532 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Reusable Hardened Helpers ---
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isBootstrappedAdmin() {
+      return isVerifiedUser() && request.auth.token.email == 'bm3hra@gmail.com';
+    }
+
+    function isAdmin() {
+      return isBootstrappedAdmin() || (isVerifiedUser() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
+    }
+
+    function isOwner(userId) {
+      return isVerifiedUser() && request.auth.uid == userId;
+    }
+
+    // --- Validation Blueprints ---
+    function isValidUserAccount(data) {
+      return data.keys().hasAll(['uid', 'displayName', 'role', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'displayName', 'role', 'createdAt', 'updatedAt'])
+        && isValidId(data.uid)
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120
+        && data.role in ['member', 'admin']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidUserPrivateInfo(data) {
+      return data.keys().hasAll(['email', 'updatedAt'])
+        && data.keys().hasOnly(['email', 'phone', 'updatedAt'])
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 200
+        && (!('phone' in data) || (data.phone is string && data.phone.size() <= 30))
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAdminRecord(data) {
+      return data.keys().hasAll(['uid', 'grantedBy', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'grantedBy', 'createdAt'])
+        && isValidId(data.uid)
+        && data.grantedBy is string && data.grantedBy.size() >= 1 && data.grantedBy.size() <= 128
+        && data.createdAt is timestamp;
+    }
+
+    function isValidFamilyBranch(data) {
+      return data.keys().hasAll(['name', 'nameHi', 'order', 'isDemoData', 'createdBy', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['name', 'nameHi', 'patriarchName', 'patriarchNameHi', 'originPlace', 'description', 'descriptionHi', 'order', 'isDemoData', 'createdBy', 'createdAt', 'updatedAt'])
+        && data.name is string && data.name.size() >= 2 && data.name.size() <= 120
+        && data.nameHi is string && data.nameHi.size() >= 1 && data.nameHi.size() <= 120
+        && (!('patriarchName' in data) || (data.patriarchName is string && data.patriarchName.size() <= 120))
+        && (!('patriarchNameHi' in data) || (data.patriarchNameHi is string && data.patriarchNameHi.size() <= 120))
+        && (!('originPlace' in data) || (data.originPlace is string && data.originPlace.size() <= 120))
+        && (!('description' in data) || (data.description is string && data.description.size() <= 1200))
+        && (!('descriptionHi' in data) || (data.descriptionHi is string && data.descriptionHi.size() <= 1200))
+        && data.order is number && data.order >= 0 && data.order <= 10000
+        && data.isDemoData is bool
+        && isValidId(data.createdBy)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidFamilyMember(data) {
+      return data.keys().hasAll([
+          'fullName', 'fullNameHi', 'gender', 'generation', 'branchId',
+          'isLiving', 'isMinor', 'nativeVillage', 'visibility', 'status',
+          'isVerified', 'isDemoData', 'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'fullName', 'fullNameHi', 'gender', 'generation', 'branchId',
+          'fatherId', 'fatherName', 'motherId', 'motherName', 'spouseId', 'spouseName',
+          'childrenNames', 'birthYear', 'deathYear', 'isLiving', 'isMinor',
+          'education', 'profession', 'city', 'state', 'country', 'nativeVillage',
+          'bio', 'bioHi', 'photoUrl', 'visibility', 'status', 'isVerified',
+          'isDemoData', 'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && data.fullName is string && data.fullName.size() >= 2 && data.fullName.size() <= 140
+        && data.fullNameHi is string && data.fullNameHi.size() >= 1 && data.fullNameHi.size() <= 140
+        && data.gender in ['male', 'female', 'other']
+        && data.generation is number && data.generation >= 1 && data.generation <= 30
+        && isValidId(data.branchId)
+        && (!('fatherId' in data) || (data.fatherId is string && data.fatherId.size() <= 128))
+        && (!('fatherName' in data) || (data.fatherName is string && data.fatherName.size() <= 140))
+        && (!('motherId' in data) || (data.motherId is string && data.motherId.size() <= 128))
+        && (!('motherName' in data) || (data.motherName is string && data.motherName.size() <= 140))
+        && (!('spouseId' in data) || (data.spouseId is string && data.spouseId.size() <= 128))
+        && (!('spouseName' in data) || (data.spouseName is string && data.spouseName.size() <= 140))
+        && (!('childrenNames' in data) || (data.childrenNames is list && data.childrenNames.size() <= 20 && (data.childrenNames.size() == 0 || data.childrenNames[0] is string)))
+        && (!('birthYear' in data) || (data.birthYear is string && data.birthYear.size() <= 16))
+        && (!('deathYear' in data) || (data.deathYear is string && data.deathYear.size() <= 16))
+        && data.isLiving is bool
+        && data.isMinor is bool
+        && (!('education' in data) || (data.education is string && data.education.size() <= 200))
+        && (!('profession' in data) || (data.profession is string && data.profession.size() <= 200))
+        && (!('city' in data) || (data.city is string && data.city.size() <= 100))
+        && (!('state' in data) || (data.state is string && data.state.size() <= 100))
+        && (!('country' in data) || (data.country is string && data.country.size() <= 100))
+        && data.nativeVillage is string && data.nativeVillage.size() >= 1 && data.nativeVillage.size() <= 120
+        && (!('bio' in data) || (data.bio is string && data.bio.size() <= 2000))
+        && (!('bioHi' in data) || (data.bioHi is string && data.bioHi.size() <= 2000))
+        && (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() <= 250000))
+        && data.visibility in ['public', 'family']
+        && (!data.isMinor || data.visibility == 'family')
+        && data.status in ['pending', 'approved']
+        && data.isVerified is bool
+        && data.isDemoData is bool
+        && isValidId(data.createdBy)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidMemberPrivateContact(data) {
+      return data.keys().hasAll(['consentGiven', 'ownerUid', 'updatedAt'])
+        && data.keys().hasOnly(['phone', 'email', 'exactBirthDate', 'privateNotes', 'consentGiven', 'ownerUid', 'updatedAt'])
+        && (!('phone' in data) || (data.phone is string && data.phone.size() <= 40))
+        && (!('email' in data) || (data.email is string && data.email.size() <= 200))
+        && (!('exactBirthDate' in data) || (data.exactBirthDate is string && data.exactBirthDate.size() <= 32))
+        && (!('privateNotes' in data) || (data.privateNotes is string && data.privateNotes.size() <= 500))
+        && data.consentGiven is bool
+        && isValidId(data.ownerUid)
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidHeritageContent(data) {
+      return data.keys().hasAll(['sectionKey', 'title', 'titleHi', 'isVerified', 'isDemoData', 'updatedBy', 'updatedAt'])
+        && data.keys().hasOnly(['sectionKey', 'title', 'titleHi', 'subtitle', 'subtitleHi', 'summary', 'summaryHi', 'gotraName', 'kuldevtaName', 'kuldeviName', 'entries', 'isVerified', 'isDemoData', 'updatedBy', 'updatedAt'])
+        && data.sectionKey in ['about', 'history', 'gotra', 'parbatsar']
+        && data.title is string && data.title.size() >= 2 && data.title.size() <= 200
+        && data.titleHi is string && data.titleHi.size() >= 1 && data.titleHi.size() <= 200
+        && (!('subtitle' in data) || (data.subtitle is string && data.subtitle.size() <= 300))
+        && (!('subtitleHi' in data) || (data.subtitleHi is string && data.subtitleHi.size() <= 300))
+        && (!('summary' in data) || (data.summary is string && data.summary.size() <= 3000))
+        && (!('summaryHi' in data) || (data.summaryHi is string && data.summaryHi.size() <= 3000))
+        && (!('gotraName' in data) || (data.gotraName is string && data.gotraName.size() <= 160))
+        && (!('kuldevtaName' in data) || (data.kuldevtaName is string && data.kuldevtaName.size() <= 160))
+        && (!('kuldeviName' in data) || (data.kuldeviName is string && data.kuldeviName.size() <= 160))
+        && (!('entries' in data) || (data.entries is list && data.entries.size() <= 25 && (data.entries.size() == 0 || data.entries[0] is map)))
+        && data.isVerified is bool
+        && data.isDemoData is bool
+        && isValidId(data.updatedBy)
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidMediaItem(data) {
+      return data.keys().hasAll(['mediaType', 'album', 'title', 'titleHi', 'url', 'consentVerified', 'visibility', 'status', 'isDemoData', 'createdBy', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['mediaType', 'album', 'title', 'titleHi', 'caption', 'captionHi', 'url', 'dateLabel', 'taggedMemberNames', 'consentVerified', 'visibility', 'status', 'isDemoData', 'createdBy', 'createdAt', 'updatedAt'])
+        && data.mediaType in ['photo', 'video']
+        && data.album in ['ancestors', 'weddings', 'festivals', 'gatherings', 'childhood', 'documents', 'functions']
+        && data.title is string && data.title.size() >= 2 && data.title.size() <= 160
+        && data.titleHi is string && data.titleHi.size() >= 1 && data.titleHi.size() <= 160
+        && (!('caption' in data) || (data.caption is string && data.caption.size() <= 600))
+        && (!('captionHi' in data) || (data.captionHi is string && data.captionHi.size() <= 600))
+        && data.url is string && data.url.size() >= 1 && data.url.size() <= 250000
+        && (!('dateLabel' in data) || (data.dateLabel is string && data.dateLabel.size() <= 60))
+        && (!('taggedMemberNames' in data) || (data.taggedMemberNames is list && data.taggedMemberNames.size() <= 15 && (data.taggedMemberNames.size() == 0 || data.taggedMemberNames[0] is string)))
+        && data.consentVerified is bool
+        && data.visibility in ['public', 'family']
+        && data.status in ['pending', 'approved']
+        && data.isDemoData is bool
+        && isValidId(data.createdBy)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidFamilyEvent(data) {
+      return data.keys().hasAll(['category', 'title', 'titleHi', 'eventDate', 'visibility', 'status', 'isDemoData', 'createdBy', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['category', 'title', 'titleHi', 'description', 'descriptionHi', 'eventDate', 'location', 'visibility', 'status', 'isDemoData', 'createdBy', 'createdAt', 'updatedAt'])
+        && data.category in ['birthday', 'wedding', 'anniversary', 'reunion', 'ceremony', 'condolence', 'upcoming']
+        && data.title is string && data.title.size() >= 2 && data.title.size() <= 180
+        && data.titleHi is string && data.titleHi.size() >= 1 && data.titleHi.size() <= 180
+        && (!('description' in data) || (data.description is string && data.description.size() <= 1500))
+        && (!('descriptionHi' in data) || (data.descriptionHi is string && data.descriptionHi.size() <= 1500))
+        && data.eventDate is string && data.eventDate.size() >= 1 && data.eventDate.size() <= 40
+        && (!('location' in data) || (data.location is string && data.location.size() <= 160))
+        && data.visibility in ['public', 'family']
+        && data.status in ['pending', 'approved']
+        && data.isDemoData is bool
+        && isValidId(data.createdBy)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidTributeItem(data) {
+      return data.keys().hasAll(['honoreeName', 'honoreeNameHi', 'authorName', 'message', 'status', 'isDemoData', 'createdBy', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['honoreeName', 'honoreeNameHi', 'yearsLabel', 'authorName', 'relationship', 'message', 'messageHi', 'status', 'isDemoData', 'createdBy', 'createdAt', 'updatedAt'])
+        && data.honoreeName is string && data.honoreeName.size() >= 2 && data.honoreeName.size() <= 140
+        && data.honoreeNameHi is string && data.honoreeNameHi.size() >= 1 && data.honoreeNameHi.size() <= 140
+        && (!('yearsLabel' in data) || (data.yearsLabel is string && data.yearsLabel.size() <= 60))
+        && data.authorName is string && data.authorName.size() >= 2 && data.authorName.size() <= 120
+        && (!('relationship' in data) || (data.relationship is string && data.relationship.size() <= 100))
+        && data.message is string && data.message.size() >= 5 && data.message.size() <= 2000
+        && (!('messageHi' in data) || (data.messageHi is string && data.messageHi.size() <= 2000))
+        && data.status in ['pending', 'approved']
+        && data.isDemoData is bool
+        && isValidId(data.createdBy)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidContactInquiry(data) {
+      return data.keys().hasAll(['senderName', 'subject', 'message', 'createdBy', 'createdAt'])
+        && data.keys().hasOnly(['senderName', 'senderCity', 'subject', 'message', 'createdBy', 'createdAt'])
+        && data.senderName is string && data.senderName.size() >= 2 && data.senderName.size() <= 120
+        && (!('senderCity' in data) || (data.senderCity is string && data.senderCity.size() <= 120))
+        && data.subject is string && data.subject.size() >= 2 && data.subject.size() <= 180
+        && data.message is string && data.message.size() >= 5 && data.message.size() <= 2000
+        && isValidId(data.createdBy)
+        && data.createdAt is timestamp;
+    }
+
+    function isValidCustomPage(data) {
+      return data.keys().hasAll(['slug', 'title', 'titleHi', 'navGroup', 'showInNav', 'order', 'visibility', 'status', 'createdBy', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly([
+          'slug', 'title', 'titleHi', 'subtitle', 'subtitleHi', 'kicker', 'kickerHi',
+          'summary', 'summaryHi', 'heroImageUrl', 'videoUrl', 'videoTitle',
+          'galleryUrls', 'sections', 'navGroup', 'showInNav', 'order',
+          'visibility', 'status', 'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && data.slug is string && data.slug.size() >= 2 && data.slug.size() <= 80 && data.slug.matches('^[a-z0-9-]+$')
+        && data.title is string && data.title.size() >= 2 && data.title.size() <= 180
+        && data.titleHi is string && data.titleHi.size() >= 1 && data.titleHi.size() <= 180
+        && (!('subtitle' in data) || (data.subtitle is string && data.subtitle.size() <= 300))
+        && (!('subtitleHi' in data) || (data.subtitleHi is string && data.subtitleHi.size() <= 300))
+        && (!('kicker' in data) || (data.kicker is string && data.kicker.size() <= 120))
+        && (!('kickerHi' in data) || (data.kickerHi is string && data.kickerHi.size() <= 120))
+        && (!('summary' in data) || (data.summary is string && data.summary.size() <= 3000))
+        && (!('summaryHi' in data) || (data.summaryHi is string && data.summaryHi.size() <= 3000))
+        && (!('heroImageUrl' in data) || (data.heroImageUrl is string && data.heroImageUrl.size() <= 250000))
+        && (!('videoUrl' in data) || (data.videoUrl is string && data.videoUrl.size() <= 600))
+        && (!('videoTitle' in data) || (data.videoTitle is string && data.videoTitle.size() <= 160))
+        && (!('galleryUrls' in data) || (data.galleryUrls is list && data.galleryUrls.size() <= 8 && (data.galleryUrls.size() == 0 || data.galleryUrls[0] is string)))
+        && (!('sections' in data) || (data.sections is list && data.sections.size() <= 15 && (data.sections.size() == 0 || data.sections[0] is map)))
+        && data.navGroup in ['lineage', 'chronicle', 'memories', 'custom']
+        && data.showInNav is bool
+        && data.order is number && data.order >= 0 && data.order <= 10000
+        && data.visibility in ['public', 'family']
+        && data.status in ['draft', 'published']
+        && isValidId(data.createdBy)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // --- Collection Rules ---
+    match /test/connection {
+      allow get: if true;
+    }
+
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isBootstrappedAdmin() || (isVerifiedUser() && resource.data.uid == request.auth.uid);
+      allow create: if isValidId(userId)
+        && isOwner(userId)
+        && isValidUserAccount(incoming())
+        && incoming().uid == userId
+        && (incoming().role == 'member' || isBootstrappedAdmin())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId)
+        && isVerifiedUser()
+        && isValidUserAccount(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          (isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'role', 'updatedAt'])) ||
+          (isOwner(userId) && incoming().role == existing().role && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'updatedAt']))
+        );
+      allow delete: if isValidId(userId) && isAdmin();
+
+      match /private/info {
+        allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+        allow create: if isValidId(userId) && isOwner(userId) && isValidUserPrivateInfo(incoming()) && incoming().updatedAt == request.time;
+        allow update: if isValidId(userId) && isOwner(userId) && isValidUserPrivateInfo(incoming()) && incoming().updatedAt == request.time && incoming().diff(existing()).affectedKeys().hasOnly(['email', 'phone', 'updatedAt']);
+        allow delete: if isValidId(userId) && isAdmin();
+      }
+    }
+
+    match /admins/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isBootstrappedAdmin();
+      allow create: if isValidId(userId) && isAdmin() && isValidAdminRecord(incoming()) && incoming().uid == userId && incoming().createdAt == request.time;
+      allow update: if isValidId(userId) && isAdmin() && isValidAdminRecord(incoming()) && incoming().uid == existing().uid && incoming().createdAt == existing().createdAt && incoming().diff(existing()).affectedKeys().hasOnly(['grantedBy']);
+      allow delete: if isValidId(userId) && isAdmin();
+    }
+
+    match /branches/{branchId} {
+      allow get: if isValidId(branchId);
+      allow list: if resource.data.order is number;
+      allow create: if isValidId(branchId) && isAdmin() && isValidFamilyBranch(incoming()) && incoming().createdBy == request.auth.uid && incoming().createdAt == request.time && incoming().updatedAt == request.time;
+      allow update: if isValidId(branchId) && isAdmin() && isValidFamilyBranch(incoming()) && incoming().createdBy == existing().createdBy && incoming().createdAt == existing().createdAt && incoming().updatedAt == request.time && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'nameHi', 'patriarchName', 'patriarchNameHi', 'originPlace', 'description', 'descriptionHi', 'order', 'isDemoData', 'updatedAt']);
+      allow delete: if isValidId(branchId) && isAdmin();
+    }
+
+    match /members/{memberId} {
+      allow get: if isValidId(memberId) && (
+        (existing().status == 'approved' && existing().visibility == 'public' && existing().isMinor == false) ||
+        (isVerifiedUser() && existing().status == 'approved') ||
+        (isVerifiedUser() && existing().createdBy == request.auth.uid) ||
+        isAdmin()
+      );
+      allow list: if (resource.data.status == 'approved' && resource.data.visibility == 'public' && resource.data.isMinor == false)
+        || (isVerifiedUser() && resource.data.status == 'approved')
+        || (isVerifiedUser() && resource.data.createdBy == request.auth.uid)
+        || isBootstrappedAdmin();
+      allow create: if isValidId(memberId)
+        && isVerifiedUser()
+        && isValidFamilyMember(incoming())
+        && incoming().createdBy == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && exists(/databases/$(database)/documents/branches/$(incoming().branchId))
+        && (isAdmin() || (incoming().status == 'pending' && incoming().isVerified == false));
+      allow update: if isValidId(memberId)
+        && isVerifiedUser()
+        && isValidFamilyMember(incoming())
+        && incoming().createdBy == existing().createdBy
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          (isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly([
+            'fullName', 'fullNameHi', 'gender', 'generation', 'branchId',
+            'fatherId', 'fatherName', 'motherId', 'motherName', 'spouseId', 'spouseName',
+            'childrenNames', 'birthYear', 'deathYear', 'isLiving', 'isMinor',
+            'education', 'profession', 'city', 'state', 'country', 'nativeVillage',
+            'bio', 'bioHi', 'photoUrl', 'visibility', 'status', 'isVerified',
+            'isDemoData', 'updatedAt'
+          ])) ||
+          (existing().createdBy == request.auth.uid && existing().status == 'pending' && incoming().status == 'pending' && incoming().isVerified == false && incoming().diff(existing()).affectedKeys().hasOnly([
+            'fullName', 'fullNameHi', 'gender', 'generation', 'branchId',
+            'fatherId', 'fatherName', 'motherId', 'motherName', 'spouseId', 'spouseName',
+            'childrenNames', 'birthYear', 'deathYear', 'isLiving', 'isMinor',
+            'education', 'profession', 'city', 'state', 'country', 'nativeVillage',
+            'bio', 'bioHi', 'photoUrl', 'visibility', 'updatedAt'
+          ]))
+        );
+      allow delete: if isValidId(memberId) && isAdmin();
+
+      match /private/contact {
+        allow get: if isValidId(memberId) && (isAdmin() || (isVerifiedUser() && get(/databases/$(database)/documents/members/$(memberId)).data.createdBy == request.auth.uid));
+        allow create: if isValidId(memberId)
+          && isVerifiedUser()
+          && isValidMemberPrivateContact(incoming())
+          && incoming().ownerUid == request.auth.uid
+          && incoming().updatedAt == request.time
+          && exists(/databases/$(database)/documents/members/$(memberId))
+          && (isAdmin() || get(/databases/$(database)/documents/members/$(memberId)).data.createdBy == request.auth.uid);
+        allow update: if isValidId(memberId)
+          && isVerifiedUser()
+          && isValidMemberPrivateContact(incoming())
+          && incoming().ownerUid == existing().ownerUid
+          && incoming().updatedAt == request.time
+          && (isAdmin() || existing().ownerUid == request.auth.uid)
+          && incoming().diff(existing()).affectedKeys().hasOnly(['phone', 'email', 'exactBirthDate', 'privateNotes', 'consentGiven', 'updatedAt']);
+        allow delete: if isValidId(memberId) && isAdmin();
+      }
+    }
+
+    match /heritageContent/{sectionId} {
+      allow get: if isValidId(sectionId);
+      allow list: if resource.data.sectionKey is string;
+      allow create: if isValidId(sectionId) && isAdmin() && isValidHeritageContent(incoming()) && incoming().updatedBy == request.auth.uid && incoming().updatedAt == request.time;
+      allow update: if isValidId(sectionId)
+        && isAdmin()
+        && isValidHeritageContent(incoming())
+        && incoming().sectionKey == existing().sectionKey
+        && incoming().updatedBy == request.auth.uid
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'title', 'titleHi', 'subtitle', 'subtitleHi', 'summary', 'summaryHi',
+          'gotraName', 'kuldevtaName', 'kuldeviName', 'entries',
+          'isVerified', 'isDemoData', 'updatedBy', 'updatedAt'
+        ]);
+      allow delete: if isValidId(sectionId) && isAdmin();
+    }
+
+    match /media/{mediaId} {
+      allow get: if isValidId(mediaId) && (
+        (existing().status == 'approved' && existing().consentVerified == true && existing().visibility == 'public') ||
+        (isVerifiedUser() && existing().status == 'approved' && existing().consentVerified == true) ||
+        (isVerifiedUser() && existing().createdBy == request.auth.uid) ||
+        isAdmin()
+      );
+      allow list: if (resource.data.status == 'approved' && resource.data.consentVerified == true && resource.data.visibility == 'public')
+        || (isVerifiedUser() && resource.data.status == 'approved' && resource.data.consentVerified == true)
+        || (isVerifiedUser() && resource.data.createdBy == request.auth.uid)
+        || isBootstrappedAdmin();
+      allow create: if isValidId(mediaId)
+        && isVerifiedUser()
+        && isValidMediaItem(incoming())
+        && incoming().createdBy == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (isAdmin() || incoming().status == 'pending');
+      allow update: if isValidId(mediaId)
+        && isAdmin()
+        && isValidMediaItem(incoming())
+        && incoming().createdBy == existing().createdBy
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'mediaType', 'album', 'title', 'titleHi', 'caption', 'captionHi',
+          'url', 'dateLabel', 'taggedMemberNames', 'consentVerified',
+          'visibility', 'status', 'isDemoData', 'updatedAt'
+        ]);
+      allow delete: if isValidId(mediaId) && isAdmin();
+    }
+
+    match /events/{eventId} {
+      allow get: if isValidId(eventId) && (
+        (existing().status == 'approved' && existing().visibility == 'public') ||
+        (isVerifiedUser() && existing().status == 'approved') ||
+        (isVerifiedUser() && existing().createdBy == request.auth.uid) ||
+        isAdmin()
+      );
+      allow list: if (resource.data.status == 'approved' && resource.data.visibility == 'public')
+        || (isVerifiedUser() && resource.data.status == 'approved')
+        || (isVerifiedUser() && resource.data.createdBy == request.auth.uid)
+        || isBootstrappedAdmin();
+      allow create: if isValidId(eventId)
+        && isVerifiedUser()
+        && isValidFamilyEvent(incoming())
+        && incoming().createdBy == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (isAdmin() || incoming().status == 'pending');
+      allow update: if isValidId(eventId)
+        && isAdmin()
+        && isValidFamilyEvent(incoming())
+        && incoming().createdBy == existing().createdBy
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'category', 'title', 'titleHi', 'description', 'descriptionHi',
+          'eventDate', 'location', 'visibility', 'status', 'isDemoData', 'updatedAt'
+        ]);
+      allow delete: if isValidId(eventId) && isAdmin();
+    }
+
+    match /tributes/{tributeId} {
+      allow get: if isValidId(tributeId) && (
+        existing().status == 'approved' ||
+        (isVerifiedUser() && existing().createdBy == request.auth.uid) ||
+        isAdmin()
+      );
+      allow list: if resource.data.status == 'approved'
+        || (isVerifiedUser() && resource.data.createdBy == request.auth.uid)
+        || isBootstrappedAdmin();
+      allow create: if isValidId(tributeId)
+        && isVerifiedUser()
+        && isValidTributeItem(incoming())
+        && incoming().createdBy == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (isAdmin() || incoming().status == 'pending');
+      allow update: if isValidId(tributeId)
+        && isAdmin()
+        && isValidTributeItem(incoming())
+        && incoming().createdBy == existing().createdBy
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'honoreeName', 'honoreeNameHi', 'yearsLabel', 'authorName',
+          'relationship', 'message', 'messageHi', 'status', 'isDemoData', 'updatedAt'
+        ]);
+      allow delete: if isValidId(tributeId) && isAdmin();
+    }
+
+    match /contactInquiries/{inquiryId} {
+      allow get: if isValidId(inquiryId) && isAdmin();
+      allow list: if isBootstrappedAdmin();
+      allow create: if isValidId(inquiryId)
+        && isVerifiedUser()
+        && isValidContactInquiry(incoming())
+        && incoming().createdBy == request.auth.uid
+        && incoming().createdAt == request.time;
+      allow delete: if isValidId(inquiryId) && isAdmin();
+    }
+
+    match /customPages/{pageId} {
+      allow get: if isValidId(pageId) && (
+        (existing().status == 'published' && existing().visibility == 'public') ||
+        (isVerifiedUser() && existing().status == 'published') ||
+        isAdmin()
+      );
+      allow list: if (resource.data.status == 'published' && resource.data.visibility == 'public')
+        || (isVerifiedUser() && resource.data.status == 'published')
+        || isBootstrappedAdmin();
+      allow create: if isValidId(pageId)
+        && isAdmin()
+        && isValidCustomPage(incoming())
+        && incoming().createdBy == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(pageId)
+        && isAdmin()
+        && isValidCustomPage(incoming())
+        && incoming().createdBy == existing().createdBy
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'slug', 'title', 'titleHi', 'subtitle', 'subtitleHi', 'kicker', 'kickerHi',
+          'summary', 'summaryHi', 'heroImageUrl', 'videoUrl', 'videoTitle',
+          'galleryUrls', 'sections', 'navGroup', 'showInNav', 'order',
+          'visibility', 'status', 'updatedAt'
+        ]);
+      allow delete: if isValidId(pageId) && isAdmin();
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "Kerapa Family – Parbatsar",
+  "description": "Digital family heritage archive, interactive multi-generation Vanshavali, gotra records, and historical chronicle of the Kerapa Family from Parbatsar, Rajasthan.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

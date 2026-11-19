@@ -1,0 +1,358 @@
+{
+  "entities": {
+    "UserAccount": {
+      "title": "UserAccount",
+      "description": "Authenticated user account metadata without sensitive PII exposed publicly.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "role": { "type": "string", "enum": ["member", "admin"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "role", "createdAt", "updatedAt"]
+    },
+    "UserPrivateInfo": {
+      "title": "UserPrivateInfo",
+      "description": "Isolated PII document for authenticated user.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email", "maxLength": 200 },
+        "phone": { "type": "string", "maxLength": 30 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "updatedAt"]
+    },
+    "AdminRecord": {
+      "title": "AdminRecord",
+      "description": "Trusted admin role registry entry.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "grantedBy": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "grantedBy", "createdAt"]
+    },
+    "FamilyBranch": {
+      "title": "FamilyBranch",
+      "description": "A distinct family lineage branch (Shakha) within the Kerapa family.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "nameHi": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "patriarchName": { "type": "string", "maxLength": 120 },
+        "patriarchNameHi": { "type": "string", "maxLength": 120 },
+        "originPlace": { "type": "string", "maxLength": 120 },
+        "description": { "type": "string", "maxLength": 1200 },
+        "descriptionHi": { "type": "string", "maxLength": 1200 },
+        "order": { "type": "number" },
+        "isDemoData": { "type": "boolean" },
+        "createdBy": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "nameHi", "order", "isDemoData", "createdBy", "createdAt", "updatedAt"]
+    },
+    "FamilyMember": {
+      "title": "FamilyMember",
+      "description": "Genealogical member profile with non-PII lineage and city-level location.",
+      "type": "object",
+      "properties": {
+        "fullName": { "type": "string", "minLength": 2, "maxLength": 140 },
+        "fullNameHi": { "type": "string", "minLength": 1, "maxLength": 140 },
+        "gender": { "type": "string", "enum": ["male", "female", "other"] },
+        "generation": { "type": "number" },
+        "branchId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "fatherId": { "type": "string", "maxLength": 128 },
+        "fatherName": { "type": "string", "maxLength": 140 },
+        "motherId": { "type": "string", "maxLength": 128 },
+        "motherName": { "type": "string", "maxLength": 140 },
+        "spouseName": { "type": "string", "maxLength": 140 },
+        "spouseId": { "type": "string", "maxLength": 128 },
+        "childrenNames": { "type": "array" },
+        "birthYear": { "type": "string", "maxLength": 16 },
+        "deathYear": { "type": "string", "maxLength": 16 },
+        "isLiving": { "type": "boolean" },
+        "isMinor": { "type": "boolean" },
+        "education": { "type": "string", "maxLength": 200 },
+        "profession": { "type": "string", "maxLength": 200 },
+        "city": { "type": "string", "maxLength": 100 },
+        "state": { "type": "string", "maxLength": 100 },
+        "country": { "type": "string", "maxLength": 100 },
+        "nativeVillage": { "type": "string", "maxLength": 120 },
+        "bio": { "type": "string", "maxLength": 2000 },
+        "bioHi": { "type": "string", "maxLength": 2000 },
+        "photoUrl": { "type": "string", "maxLength": 250000 },
+        "visibility": { "type": "string", "enum": ["public", "family"] },
+        "status": { "type": "string", "enum": ["pending", "approved"] },
+        "isVerified": { "type": "boolean" },
+        "isDemoData": { "type": "boolean" },
+        "createdBy": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "fullName",
+        "fullNameHi",
+        "gender",
+        "generation",
+        "branchId",
+        "isLiving",
+        "isMinor",
+        "nativeVillage",
+        "visibility",
+        "status",
+        "isVerified",
+        "isDemoData",
+        "createdBy",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "MemberPrivateContact": {
+      "title": "MemberPrivateContact",
+      "description": "Private contact details isolated from public member directory.",
+      "type": "object",
+      "properties": {
+        "phone": { "type": "string", "maxLength": 40 },
+        "email": { "type": "string", "maxLength": 200 },
+        "exactBirthDate": { "type": "string", "maxLength": 32 },
+        "privateNotes": { "type": "string", "maxLength": 500 },
+        "consentGiven": { "type": "boolean" },
+        "ownerUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["consentGiven", "ownerUid", "updatedAt"]
+    },
+    "HeritageContent": {
+      "title": "HeritageContent",
+      "description": "Editable institutional heritage, gotra, history, and Parbatsar village records.",
+      "type": "object",
+      "properties": {
+        "sectionKey": { "type": "string", "enum": ["about", "history", "gotra", "parbatsar"] },
+        "title": { "type": "string", "minLength": 2, "maxLength": 200 },
+        "titleHi": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "subtitle": { "type": "string", "maxLength": 300 },
+        "subtitleHi": { "type": "string", "maxLength": 300 },
+        "summary": { "type": "string", "maxLength": 3000 },
+        "summaryHi": { "type": "string", "maxLength": 3000 },
+        "gotraName": { "type": "string", "maxLength": 160 },
+        "kuldevtaName": { "type": "string", "maxLength": 160 },
+        "kuldeviName": { "type": "string", "maxLength": 160 },
+        "entries": { "type": "array" },
+        "isVerified": { "type": "boolean" },
+        "isDemoData": { "type": "boolean" },
+        "updatedBy": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["sectionKey", "title", "titleHi", "isVerified", "isDemoData", "updatedBy", "updatedAt"]
+    },
+    "MediaItem": {
+      "title": "MediaItem",
+      "description": "Photo and video gallery archival item with consent verification.",
+      "type": "object",
+      "properties": {
+        "mediaType": { "type": "string", "enum": ["photo", "video"] },
+        "album": { "type": "string", "enum": ["ancestors", "weddings", "festivals", "gatherings", "childhood", "documents", "functions"] },
+        "title": { "type": "string", "minLength": 2, "maxLength": 160 },
+        "titleHi": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "caption": { "type": "string", "maxLength": 600 },
+        "captionHi": { "type": "string", "maxLength": 600 },
+        "url": { "type": "string", "minLength": 1, "maxLength": 250000 },
+        "dateLabel": { "type": "string", "maxLength": 60 },
+        "taggedMemberNames": { "type": "array" },
+        "consentVerified": { "type": "boolean" },
+        "visibility": { "type": "string", "enum": ["public", "family"] },
+        "status": { "type": "string", "enum": ["pending", "approved"] },
+        "isDemoData": { "type": "boolean" },
+        "createdBy": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "mediaType",
+        "album",
+        "title",
+        "titleHi",
+        "url",
+        "consentVerified",
+        "visibility",
+        "status",
+        "isDemoData",
+        "createdBy",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "FamilyEvent": {
+      "title": "FamilyEvent",
+      "description": "Family announcement, celebration, ceremony, or reunion event.",
+      "type": "object",
+      "properties": {
+        "category": { "type": "string", "enum": ["birthday", "wedding", "anniversary", "reunion", "ceremony", "condolence", "upcoming"] },
+        "title": { "type": "string", "minLength": 2, "maxLength": 180 },
+        "titleHi": { "type": "string", "minLength": 1, "maxLength": 180 },
+        "description": { "type": "string", "maxLength": 1500 },
+        "descriptionHi": { "type": "string", "maxLength": 1500 },
+        "eventDate": { "type": "string", "maxLength": 40 },
+        "location": { "type": "string", "maxLength": 160 },
+        "visibility": { "type": "string", "enum": ["public", "family"] },
+        "status": { "type": "string", "enum": ["pending", "approved"] },
+        "isDemoData": { "type": "boolean" },
+        "createdBy": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "category",
+        "title",
+        "titleHi",
+        "eventDate",
+        "visibility",
+        "status",
+        "isDemoData",
+        "createdBy",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "TributeItem": {
+      "title": "TributeItem",
+      "description": "Ancestral memory and tribute honoring elders and forebears.",
+      "type": "object",
+      "properties": {
+        "honoreeName": { "type": "string", "minLength": 2, "maxLength": 140 },
+        "honoreeNameHi": { "type": "string", "minLength": 1, "maxLength": 140 },
+        "yearsLabel": { "type": "string", "maxLength": 60 },
+        "authorName": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "relationship": { "type": "string", "maxLength": 100 },
+        "message": { "type": "string", "minLength": 5, "maxLength": 2000 },
+        "messageHi": { "type": "string", "maxLength": 2000 },
+        "status": { "type": "string", "enum": ["pending", "approved"] },
+        "isDemoData": { "type": "boolean" },
+        "createdBy": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "honoreeName",
+        "honoreeNameHi",
+        "authorName",
+        "message",
+        "status",
+        "isDemoData",
+        "createdBy",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ContactInquiry": {
+      "title": "ContactInquiry",
+      "description": "Private family archive inquiry submitted via Contact page.",
+      "type": "object",
+      "properties": {
+        "senderName": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "senderCity": { "type": "string", "maxLength": 120 },
+        "subject": { "type": "string", "minLength": 2, "maxLength": 180 },
+        "message": { "type": "string", "minLength": 5, "maxLength": 2000 },
+        "createdBy": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["senderName", "subject", "message", "createdBy", "createdAt"]
+    },
+    "CustomPage": {
+      "title": "CustomPage",
+      "description": "Admin-authored custom bilingual archive page with sections, images, and embedded video.",
+      "type": "object",
+      "properties": {
+        "slug": { "type": "string", "minLength": 2, "maxLength": 80, "pattern": "^[a-z0-9-]+$" },
+        "title": { "type": "string", "minLength": 2, "maxLength": 180 },
+        "titleHi": { "type": "string", "minLength": 1, "maxLength": 180 },
+        "subtitle": { "type": "string", "maxLength": 300 },
+        "subtitleHi": { "type": "string", "maxLength": 300 },
+        "kicker": { "type": "string", "maxLength": 120 },
+        "kickerHi": { "type": "string", "maxLength": 120 },
+        "summary": { "type": "string", "maxLength": 3000 },
+        "summaryHi": { "type": "string", "maxLength": 3000 },
+        "heroImageUrl": { "type": "string", "maxLength": 250000 },
+        "videoUrl": { "type": "string", "maxLength": 600 },
+        "videoTitle": { "type": "string", "maxLength": 160 },
+        "galleryUrls": { "type": "array" },
+        "sections": { "type": "array" },
+        "navGroup": { "type": "string", "enum": ["lineage", "chronicle", "memories", "custom"] },
+        "showInNav": { "type": "boolean" },
+        "order": { "type": "number" },
+        "visibility": { "type": "string", "enum": ["public", "family"] },
+        "status": { "type": "string", "enum": ["draft", "published"] },
+        "createdBy": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "slug",
+        "title",
+        "titleHi",
+        "navGroup",
+        "showInNav",
+        "order",
+        "visibility",
+        "status",
+        "createdBy",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserAccount" },
+      "description": "User role and display metadata."
+    },
+    "/users/{userId}/private/info": {
+      "schema": { "$ref": "#/entities/UserPrivateInfo" },
+      "description": "Private user email/phone isolated from public reads."
+    },
+    "/admins/{userId}": {
+      "schema": { "$ref": "#/entities/AdminRecord" },
+      "description": "Trusted administrator lookup registry."
+    },
+    "/branches/{branchId}": {
+      "schema": { "$ref": "#/entities/FamilyBranch" },
+      "description": "Kerapa family branches (Shakhas)."
+    },
+    "/members/{memberId}": {
+      "schema": { "$ref": "#/entities/FamilyMember" },
+      "description": "Family member directory and lineage records."
+    },
+    "/members/{memberId}/private/contact": {
+      "schema": { "$ref": "#/entities/MemberPrivateContact" },
+      "description": "Isolated private contact information for a family member."
+    },
+    "/heritageContent/{sectionId}": {
+      "schema": { "$ref": "#/entities/HeritageContent" },
+      "description": "Editable heritage sections: about, history, gotra, parbatsar."
+    },
+    "/media/{mediaId}": {
+      "schema": { "$ref": "#/entities/MediaItem" },
+      "description": "Photo and video gallery archival items."
+    },
+    "/events/{eventId}": {
+      "schema": { "$ref": "#/entities/FamilyEvent" },
+      "description": "Family events, announcements, and milestones."
+    },
+    "/tributes/{tributeId}": {
+      "schema": { "$ref": "#/entities/TributeItem" },
+      "description": "Ancestral tributes and remembrance notes."
+    },
+    "/contactInquiries/{inquiryId}": {
+      "schema": { "$ref": "#/entities/ContactInquiry" },
+      "description": "Private inquiries sent to family archive administrators."
+    },
+    "/customPages/{pageId}": {
+      "schema": { "$ref": "#/entities/CustomPage" },
+      "description": "Admin-created custom pages with bilingual sections, images, and videos."
+    }
+  }
+}

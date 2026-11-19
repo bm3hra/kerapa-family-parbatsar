@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+@theme {
+  --font-serif: "Cormorant Garamond", "Noto Sans Devanagari", Georgia, serif;
+  --font-sans: "Plus Jakarta Sans", "Noto Sans Devanagari", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --color-royal-maroon: #6E182B;
+  --color-royal-maroon-dark: #4F0F1E;
+  --color-royal-maroon-deep: #350D17;
+  --color-royal-gold: #A67C2E;
+  --color-royal-gold-bright: #D4AF6A;
+  --color-royal-ivory: #FAF7F2;
+  --color-royal-sandstone: #F2ECE1;
+  --color-royal-border: #E2D9C8;
+  --color-royal-green: #173F30;
+  --color-royal-ink: #191614;
+  --color-royal-muted: #5C554E;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    scroll-behavior: smooth;
+    background-color: #FAF7F2;
+    color: #191614;
+  }
+
+  body {
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, .font-heritage {
+    font-family: var(--font-serif);
+    text-wrap: balance;
+  }
+
+  button, a, select, input, textarea {
+    outline-color: #6E182B;
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Subtle Rajasthani architectural lattice for cartographic & archive surfaces */
+.rajasthani-lattice {
+  background-image: radial-gradient(circle at 1px 1px, rgba(166, 124, 46, 0.16) 1px, transparent 0);
+  background-size: 18px 18px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
